@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v4
 projectName: remix
 repo: github.com/marcogenualdo/k8s-remix
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openkube.io
+  group: remix
+  kind: SecretRemix
+  path: github.com/marcogenualdo/k8s-remix/api/v1alpha1
+  version: v1alpha1
 version: "3"
