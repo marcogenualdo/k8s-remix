@@ -18,8 +18,13 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,21 +41,88 @@ type SecretRemixReconciler struct {
 // +kubebuilder:rbac:groups=remix.openkube.io,resources=secretremixes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=remix.openkube.io,resources=secretremixes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=remix.openkube.io,resources=secretremixes/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the SecretRemix object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
+	logger.Info("Reconciling SecretRemix", "name", req.Name, "namespace", req.Namespace)
 
-	// TODO(user): your logic here
+	// Fetch the SecretRemix instance
+	secretRemix := &remixv1alpha1.SecretRemix{}
+	if err := r.Get(ctx, req.NamespacedName, secretRemix); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("SecretRemix resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get SecretRemix")
+		return ctrl.Result{}, err
+	}
 
+	var secretData = map[string][]byte{}
+
+	// iterate over dataFrom
+	for _, item := range secretRemix.DataFrom {
+		if item.Value != "" {
+			secretData[item.Key] = []byte(item.Value)
+		} else if item.ValueFrom != nil && item.ValueFrom.ConfigMapKeyRef != nil {
+			cmRef := item.ValueFrom.ConfigMapKeyRef
+			if cmRef.Namespace == "" {
+				cmRef.Namespace = secretRemix.Namespace
+			}
+			configMap := &corev1.ConfigMap{}
+			configMapRef := types.NamespacedName{Namespace: cmRef.Namespace, Name: cmRef.Name}
+			err := r.Get(ctx, configMapRef, configMap)
+			if err != nil {
+				logger.Error(err, "Failed to get ConfigMap")
+				return ctrl.Result{}, err
+			}
+
+			secretData[item.Key] = []byte(configMap.Data[cmRef.Key])
+		} else if item.ValueFrom != nil && item.ValueFrom.SecretKeyRef != nil {
+			secretKeyRef := item.ValueFrom.SecretKeyRef
+			if secretKeyRef.Namespace == "" {
+				secretKeyRef.Namespace = secretRemix.Namespace
+			}
+			secret := &corev1.Secret{}
+			secretRef := types.NamespacedName{Namespace: secretKeyRef.Namespace, Name: secretKeyRef.Name}
+			err := r.Get(ctx, secretRef, secret)
+			if err != nil {
+				logger.Error(err, "Failed to get Secret")
+				return ctrl.Result{}, err
+			}
+
+			secretData[item.Key] = secret.Data[secretKeyRef.Key]
+		} else {
+			err := fmt.Errorf("Value not found and ValueFrom must be either a ConfigMapKeyRef or a SecretKeyRef")
+			logger.Error(err, "SecretRemix error.")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// create or update secret
+	remixedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretRemix.Name,
+			Namespace: secretRemix.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+	result, err := ctrl.CreateOrUpdate(ctx, r.Client, remixedSecret, func() error {
+		remixedSecret.Data = secretData
+		return nil
+	})
+	if err != nil {
+		logger.Error(err, "Failed to create Secret")
+		return ctrl.Result{}, err
+	}
+
+	logger.Info("Secret reconciled", "result", result)
 	return ctrl.Result{}, nil
 }
 

@@ -32,10 +32,72 @@ type SecretRemixSpec struct {
 	Foo string `json:"foo,omitempty"`
 }
 
+// KeySelector selects a key from a ConfigMap or Secret
+type KeySelector struct {
+	// Name of the ConfigMap or Secret
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Namespace where the ConfigMap or Secret is located
+	// If not specified, the namespace of the SecretRemix resource is used
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Key to select
+	// +kubebuilder:validation:Required
+	Key string `json:"key"`
+}
+
+type SecretRemixValueFrom struct {
+	// +optional
+	ConfigMapKeyRef *KeySelector `json:"configMapKeyRef,omitempty"`
+
+	// +optional
+	SecretKeyRef *KeySelector `json:"secretKeyRef,omitempty"`
+}
+
+type SecretRemixDataFrom struct {
+	// +kubebuilder:validation:Required
+	Key string `json:"key"`
+
+	// +optional
+	Value string `json:"value,omitempty"`
+
+	// +optional
+	ValueFrom *SecretRemixValueFrom `json:"valueFrom,omitempty"`
+}
+
 // SecretRemixStatus defines the observed state of SecretRemix.
 type SecretRemixStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// ManagedSecret is the name of the secret that is managed by this SecretRemix
+	// +optional
+	ManagedSecret string `json:"managedSecret,omitempty"`
+
+	// WatchedResources lists the ConfigMaps and Secrets being watched
+	// +optional
+	WatchedResources []WatchedResource `json:"watchedResources,omitempty"`
+
+	// LastSyncTime is the last time the secret was synced
+	// +optional
+	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+
+	// Conditions represent the latest available observations of an object's state
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
+// WatchedResource identifies a resource that is being watched for changes
+type WatchedResource struct {
+	// Type is the type of resource (ConfigMap or Secret)
+	Type string `json:"type"`
+
+	// Name is the name of the resource
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the resource
+	Namespace string `json:"namespace"`
 }
 
 // +kubebuilder:object:root=true
@@ -46,8 +108,9 @@ type SecretRemix struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SecretRemixSpec   `json:"spec,omitempty"`
-	Status SecretRemixStatus `json:"status,omitempty"`
+	// +kubebuilder:validation:Required
+	DataFrom []SecretRemixDataFrom `json:"dataFrom,omitempty"`
+	Status   SecretRemixStatus     `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
