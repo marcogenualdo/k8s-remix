@@ -64,10 +64,6 @@ type SecretRemixStatus struct {
 	// +optional
 	ManagedSecret string `json:"managedSecret,omitempty"`
 
-	// WatchedResources lists the ConfigMaps and Secrets being watched
-	// +optional
-	WatchedResources []WatchedResource `json:"watchedResources,omitempty"`
-
 	// LastSyncTime is the last time the secret was synced
 	// +optional
 	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
@@ -77,18 +73,6 @@ type SecretRemixStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-}
-
-// WatchedResource identifies a resource that is being watched for changes
-type WatchedResource struct {
-	// Type is the type of resource (ConfigMap or Secret)
-	Type string `json:"type"`
-
-	// Name is the name of the resource
-	Name string `json:"name"`
-
-	// Namespace is the namespace of the resource
-	Namespace string `json:"namespace"`
 }
 
 // +kubebuilder:object:root=true
