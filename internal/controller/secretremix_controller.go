@@ -26,8 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	remixv1alpha1 "github.com/marcogenualdo/k8s-remix/api/v1alpha1"
 )
@@ -64,40 +68,58 @@ func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	var secretData = map[string][]byte{}
+	// set secretRemix status
+	secretRemix.Status.Conditions = []metav1.Condition{
+		{
+			Type:    "Syncing",
+			Status:  metav1.ConditionTrue,
+			Reason:  "Syncing",
+			Message: "Syncing",
+		},
+	}
+	if err := r.Status().Update(ctx, secretRemix); err != nil {
+		logger.Error(err, "Failed to update SecretRemix status")
+		return ctrl.Result{}, err
+	}
+
+	type SecretData map[string][]byte
+	var secretData = SecretData{}
+	var watchedResources = []remixv1alpha1.WatchedResource{}
 
 	// iterate over dataFrom
 	for _, item := range secretRemix.DataFrom {
 		if item.Value != "" {
 			secretData[item.Key] = []byte(item.Value)
 		} else if item.ValueFrom != nil && item.ValueFrom.ConfigMapKeyRef != nil {
-			cmRef := item.ValueFrom.ConfigMapKeyRef
-			if cmRef.Namespace == "" {
-				cmRef.Namespace = secretRemix.Namespace
+			ref := item.ValueFrom.ConfigMapKeyRef
+			if ref.Namespace == "" {
+				ref.Namespace = secretRemix.Namespace
 			}
 			configMap := &corev1.ConfigMap{}
-			configMapRef := types.NamespacedName{Namespace: cmRef.Namespace, Name: cmRef.Name}
+			configMapRef := types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}
 			err := r.Get(ctx, configMapRef, configMap)
 			if err != nil {
 				logger.Error(err, "Failed to get ConfigMap")
 				return ctrl.Result{}, err
 			}
 
-			secretData[item.Key] = []byte(configMap.Data[cmRef.Key])
+			secretData[item.Key] = []byte(configMap.Data[ref.Key])
+			watchedResources = append(watchedResources, remixv1alpha1.WatchedResource{Name: ref.Name, Namespace: ref.Namespace})
 		} else if item.ValueFrom != nil && item.ValueFrom.SecretKeyRef != nil {
-			secretKeyRef := item.ValueFrom.SecretKeyRef
-			if secretKeyRef.Namespace == "" {
-				secretKeyRef.Namespace = secretRemix.Namespace
+			ref := item.ValueFrom.SecretKeyRef
+			if ref.Namespace == "" {
+				ref.Namespace = secretRemix.Namespace
 			}
 			secret := &corev1.Secret{}
-			secretRef := types.NamespacedName{Namespace: secretKeyRef.Namespace, Name: secretKeyRef.Name}
+			secretRef := types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}
 			err := r.Get(ctx, secretRef, secret)
 			if err != nil {
 				logger.Error(err, "Failed to get Secret")
 				return ctrl.Result{}, err
 			}
 
-			secretData[item.Key] = secret.Data[secretKeyRef.Key]
+			secretData[item.Key] = secret.Data[ref.Key]
+			watchedResources = append(watchedResources, remixv1alpha1.WatchedResource{Name: ref.Name, Namespace: ref.Namespace})
 		} else {
 			err := fmt.Errorf("Value not found and ValueFrom must be either a ConfigMapKeyRef or a SecretKeyRef")
 			logger.Error(err, "SecretRemix error.")
@@ -122,6 +144,21 @@ func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// update SecretRemix status
+	secretRemix.Status.WatchedResources = watchedResources
+	secretRemix.Status.Conditions = []metav1.Condition{
+		{
+			Type:    "Ready",
+			Status:  metav1.ConditionTrue,
+			Reason:  "SecretRemixReady",
+			Message: "SecretRemix is ready",
+		},
+	}
+	if err := r.Status().Update(ctx, secretRemix); err != nil {
+		logger.Error(err, "Failed to update SecretRemix status")
+		return ctrl.Result{}, err
+	}
+
 	logger.Info("Secret reconciled", "result", result)
 	return ctrl.Result{}, nil
 }
@@ -130,6 +167,20 @@ func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *SecretRemixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&remixv1alpha1.SecretRemix{}).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.findSecretRemixes),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findSecretRemixes),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Named("secretremix").
 		Complete(r)
+}
+
+func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, secret client.Object) []reconcile.Request {
+	return make([]reconcile.Request)
 }

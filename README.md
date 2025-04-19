@@ -1,3 +1,10 @@
+# TODO
+
+- cache already fetched secrets and cms
+- watch secrets and cms for changes
+- update managed resource status
+- make helm chart
+
 # remix
 // TODO(user): Add simple overview of use/purpose
 
