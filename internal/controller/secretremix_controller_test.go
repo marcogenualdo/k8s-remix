@@ -503,4 +503,3 @@ var _ = Describe("SecretRemix Controller", func() {
 		})
 	})
 })
-

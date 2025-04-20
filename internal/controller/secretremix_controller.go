@@ -69,14 +69,6 @@ func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// set secretRemix status
-	secretRemix.Status.Conditions = []metav1.Condition{
-		{
-			Type:    "Syncing",
-			Status:  metav1.ConditionTrue,
-			Reason:  "Syncing",
-			Message: "Syncing",
-		},
-	}
 	if err := r.Status().Update(ctx, secretRemix); err != nil {
 		logger.Error(err, "Failed to update SecretRemix status")
 		return ctrl.Result{}, err
@@ -142,14 +134,6 @@ func (r *SecretRemixReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// update SecretRemix status
-	secretRemix.Status.Conditions = []metav1.Condition{
-		{
-			Type:    "Ready",
-			Status:  metav1.ConditionTrue,
-			Reason:  "SecretRemixReady",
-			Message: "SecretRemix is ready",
-		},
-	}
 	if err := r.Status().Update(ctx, secretRemix); err != nil {
 		logger.Error(err, "Failed to update SecretRemix status")
 		return ctrl.Result{}, err
@@ -165,7 +149,7 @@ func (r *SecretRemixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &remixv1alpha1.SecretRemix{}, "spec.dataFrom.secretKeyRef", func(obj client.Object) []string {
 		secretRemix := obj.(*remixv1alpha1.SecretRemix)
 		var secrets []string
-		
+
 		// Extract secret references from DataFrom field
 		for _, item := range secretRemix.DataFrom {
 			if item.ValueFrom != nil && item.ValueFrom.SecretKeyRef != nil {
@@ -178,17 +162,17 @@ func (r *SecretRemixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				secrets = append(secrets, key)
 			}
 		}
-		
+
 		return secrets
 	}); err != nil {
 		return err
 	}
-	
+
 	// Add index for configmaps referenced in SecretRemix.DataFrom
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &remixv1alpha1.SecretRemix{}, "spec.dataFrom.configMapKeyRef", func(obj client.Object) []string {
 		secretRemix := obj.(*remixv1alpha1.SecretRemix)
 		var configmaps []string
-		
+
 		// Extract configmap references from DataFrom field
 		for _, item := range secretRemix.DataFrom {
 			if item.ValueFrom != nil && item.ValueFrom.ConfigMapKeyRef != nil {
@@ -201,12 +185,12 @@ func (r *SecretRemixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				configmaps = append(configmaps, key)
 			}
 		}
-		
+
 		return configmaps
 	}); err != nil {
 		return err
 	}
-	
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&remixv1alpha1.SecretRemix{}).
 		Watches(
@@ -226,13 +210,13 @@ func (r *SecretRemixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
 	var requests []reconcile.Request
-	
+
 	switch resource := obj.(type) {
 	case *corev1.Secret:
 		// Find all SecretRemix objects that reference this Secret in their DataFrom
 		key := resource.Namespace + "/" + resource.Name
 		logger.Info("Finding SecretRemix objects referencing Secret", "key", key)
-		
+
 		secretRemixList := &remixv1alpha1.SecretRemixList{}
 		if err := r.List(ctx, secretRemixList, client.MatchingFields{
 			"spec.dataFrom.secretKeyRef": key,
@@ -240,14 +224,14 @@ func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, obj clien
 			logger.Error(err, "Failed to list SecretRemix objects for Secret", "key", key)
 			return nil
 		}
-		
+
 		// Add each matching SecretRemix to the reconciliation queue
 		for _, secretRemix := range secretRemixList.Items {
-			logger.Info("Queuing SecretRemix for reconciliation due to Secret change", 
-				"secretRemix", secretRemix.Name, 
-				"namespace", secretRemix.Namespace, 
+			logger.Info("Queuing SecretRemix for reconciliation due to Secret change",
+				"secretRemix", secretRemix.Name,
+				"namespace", secretRemix.Namespace,
 				"secret", resource.Name)
-			
+
 			requests = append(requests, reconcile.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      secretRemix.Name,
@@ -255,12 +239,12 @@ func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, obj clien
 				},
 			})
 		}
-		
+
 	case *corev1.ConfigMap:
 		// Find all SecretRemix objects that reference this ConfigMap in their DataFrom
 		key := resource.Namespace + "/" + resource.Name
 		logger.Info("Finding SecretRemix objects referencing ConfigMap", "key", key)
-		
+
 		secretRemixList := &remixv1alpha1.SecretRemixList{}
 		if err := r.List(ctx, secretRemixList, client.MatchingFields{
 			"spec.dataFrom.configMapKeyRef": key,
@@ -268,14 +252,14 @@ func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, obj clien
 			logger.Error(err, "Failed to list SecretRemix objects for ConfigMap", "key", key)
 			return nil
 		}
-		
+
 		// Add each matching SecretRemix to the reconciliation queue
 		for _, secretRemix := range secretRemixList.Items {
-			logger.Info("Queuing SecretRemix for reconciliation due to ConfigMap change", 
-				"secretRemix", secretRemix.Name, 
-				"namespace", secretRemix.Namespace, 
+			logger.Info("Queuing SecretRemix for reconciliation due to ConfigMap change",
+				"secretRemix", secretRemix.Name,
+				"namespace", secretRemix.Namespace,
 				"configmap", resource.Name)
-			
+
 			requests = append(requests, reconcile.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      secretRemix.Name,
@@ -284,6 +268,6 @@ func (r *SecretRemixReconciler) findSecretRemixes(ctx context.Context, obj clien
 			})
 		}
 	}
-	
+
 	return requests
 }

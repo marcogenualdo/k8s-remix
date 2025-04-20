@@ -1,15 +1,37 @@
-# TODO
-
-- cache already fetched secrets and cms
-- watch secrets and cms for changes
-- update managed resource status
-- make helm chart
-
 # remix
-// TODO(user): Add simple overview of use/purpose
+
+A Kubernetes operator to compose secrets with the same flexibility as a pod `env` spec field.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+Remix lets you create a `SecretRemix` resource, which manages a secret of the same name, in the same namespace.
+Like a normal secret, a `SecretRemix` resource holds key value pairs, and value are base64 encrypted. Values may be directly specified as literals, just like a normal secret, or taken from a Configmap or Secret.
+The syntax resembles the `spec.containers.env` field of a pod resource.
+
+```yaml
+apiVersion: remix.openkube.io/v1
+kind: SecretRemix
+metadata:
+    name: my-secret
+dataFrom:
+  - key: literal
+    value: literal-value
+  - key: from-secret
+    valueFrom:
+      secretKeyRef:
+        namespace: other-namespace
+        name: other-secret
+        key: secret-key
+  - key: from-configmap
+    valueFrom:
+      configMapKeyRef:
+        name: other-configmap
+        key: other-key
+```
+
+Source secrets or configmaps may be taken from the same namespace, if leaving the `namespace` field blank, or from a different namespace.
+
+The operator controller watches changes to configmaps and secrets mentioned in the `dataFrom` field, and triggers an update whenever these resources are updated.
 
 ## Getting Started
 
