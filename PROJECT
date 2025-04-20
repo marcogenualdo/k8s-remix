@@ -5,6 +5,8 @@
 domain: openkube.io
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  helm.kubebuilder.io/v1-alpha: {}
 projectName: remix
 repo: github.com/marcogenualdo/k8s-remix
 resources:

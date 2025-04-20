@@ -1,0 +1,56 @@
+{{- if .Values.rbac.enable }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: remix-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - remix.openkube.io
+  resources:
+  - secretremixes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - remix.openkube.io
+  resources:
+  - secretremixes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - remix.openkube.io
+  resources:
+  - secretremixes/status
+  verbs:
+  - get
+  - patch
+  - update
+{{- end -}}
