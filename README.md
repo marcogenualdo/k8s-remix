@@ -1,4 +1,8 @@
-# remix
+[![Lint](https://github.com/marcogenualdo/k8s-remix/actions/workflows/lint.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/lint.yml)
+[![Tests](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test.yml)
+[![Test Chart](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test-chart.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test-chart.yml)
+
+# Remix
 
 A Kubernetes operator to compose secrets with the same flexibility as a pod `env` spec field.
 
