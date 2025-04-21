@@ -1,6 +1,7 @@
 [![Lint](https://github.com/marcogenualdo/k8s-remix/actions/workflows/lint.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/lint.yml)
 [![Tests](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test.yml)
 [![Test Chart](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test-chart.yml/badge.svg)](https://github.com/marcogenualdo/k8s-remix/actions/workflows/test-chart.yml)
+[![Latest release](https://badgen.net/github/release/marcogenualdo/k8s-remix)](https://github.com/marcogenualdo/k8s-remix/releases/latest)
 
 # Remix
 
