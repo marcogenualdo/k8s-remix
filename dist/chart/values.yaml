@@ -3,8 +3,8 @@ controllerManager:
   replicas: 1
   container:
     image:
-      repository: 654654607921.dkr.ecr.eu-west-1.amazonaws.com/devmonitor/remix-controller
-      tag: v0.3
+      repository: controller-manager
+      tag: v0.1
     args:
       - "--leader-elect"
       - "--health-probe-bind-address=:8081"

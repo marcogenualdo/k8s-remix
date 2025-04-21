@@ -8,6 +8,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+split-img = $(word $2,$(subst :, ,$1))
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
@@ -158,7 +160,7 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 
 .PHONY: helm
 helm:
-	helm upgrade --install remix ./dist/chart -n remix-system
+	helm upgrade --install remix ./dist/chart -n remix-system --set controllerManager.container.image.repository=$(call split-img, ${IMG}, 1) --set controllerManager.container.image.tag=$(call split-img, ${IMG}, 2)
 
 ##@ Dependencies
 
